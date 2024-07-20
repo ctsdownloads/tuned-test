@@ -47,15 +47,8 @@ class TunedIndicator:
 
     def get_profiles(self):
         try:
-            cmd = ['tuned-adm', 'list']
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
-            
-            profiles = []
-            for line in output.split('\n'):
-                if line.startswith('- '):
-                    profile = line.strip('- ').split(' - ')[0].strip()
-                    profiles.append(profile)
-            
+            output = subprocess.check_output(['tuned-adm', 'list'], stderr=subprocess.STDOUT, text=True)
+            profiles = [line.strip('- ').split(' - ')[0].strip() for line in output.split('\n') if line.startswith('- ')]
             return profiles
         except subprocess.CalledProcessError as e:
             logging.error(f"Error getting profiles: {e.output}")
@@ -114,8 +107,7 @@ class TunedIndicator:
         if profile.startswith('intel-best_power_efficiency_mode'):
             profile = 'intel-best_power_efficiency_mode'
         try:
-            cmd = ['tuned-adm', 'profile', profile]
-            subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+            subprocess.check_output(['tuned-adm', 'profile', profile], stderr=subprocess.STDOUT, text=True)
             logging.info(f"Successfully switched to profile: {profile}")
             self.update_active_profile()
         except subprocess.CalledProcessError as e:
@@ -127,8 +119,7 @@ class TunedIndicator:
 
     def update_active_profile(self):
         try:
-            cmd = ['tuned-adm', 'active']
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+            output = subprocess.check_output(['tuned-adm', 'active'], stderr=subprocess.STDOUT, text=True)
             if "No current active profile" in output:
                 self.indicator.set_label(" No active profile", "")
             else:
@@ -150,6 +141,7 @@ class TunedIndicator:
 if __name__ == "__main__":
     indicator = TunedIndicator()
     Gtk.main()
+
 
 
 EOF
