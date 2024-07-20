@@ -5,8 +5,11 @@ from gi.repository import Gtk, AppIndicator3, GLib
 import subprocess
 import logging
 import signal
+import os
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+PROFILES_PER_PAGE = 10
 
 class TunedIndicator:
     def __init__(self):
@@ -15,6 +18,7 @@ class TunedIndicator:
             "gnome-power-manager-symbolic",
             AppIndicator3.IndicatorCategory.SYSTEM_SERVICES)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        self.current_page = 0
         self.indicator.set_menu(self.create_menu())
 
         # Delay initial update to ensure system is ready
@@ -26,23 +30,9 @@ class TunedIndicator:
         signal.signal(signal.SIGUSR2, self.handle_signal)
 
     def create_menu(self):
-        menu = Gtk.Menu()
-        
-        profiles = self.get_profiles()
-        for profile in profiles:
-            item = Gtk.MenuItem(label=profile)
-            item.connect('activate', self.on_profile_click)
-            menu.append(item)
-
-        separator = Gtk.SeparatorMenuItem()
-        menu.append(separator)
-
-        off_item = Gtk.MenuItem(label="Turn Off")
-        off_item.connect('activate', self.on_turn_off_click)
-        menu.append(off_item)
-
-        menu.show_all()
-        return menu
+        self.menu = Gtk.Menu()
+        self.update_menu_items()
+        return self.menu
 
     def get_profiles(self):
         try:
@@ -60,24 +50,69 @@ class TunedIndicator:
             logging.error(f"Error getting profiles: {e.output}")
             return []
 
+    def update_menu_items(self):
+        # Clear existing menu items
+        for item in self.menu.get_children():
+            self.menu.remove(item)
+
+        profiles = self.get_profiles()
+        start = self.current_page * PROFILES_PER_PAGE
+        end = min(start + PROFILES_PER_PAGE, len(profiles))
+        current_profiles = profiles[start:end]
+
+        for profile in current_profiles:
+            item = Gtk.MenuItem(label=profile)
+            item.set_tooltip_text(profile)  # Ensure the full profile name is visible
+            item.connect('activate', self.on_profile_click)
+            self.menu.append(item)
+
+        # Add pagination controls
+        if self.current_page > 0:
+            prev_item = Gtk.MenuItem(label="Previous")
+            prev_item.connect('activate', self.on_prev_page)
+            self.menu.append(prev_item)
+
+        if end < len(profiles):
+            next_item = Gtk.MenuItem(label="Next")
+            next_item.connect('activate', self.on_next_page)
+            self.menu.append(next_item)
+
+        separator = Gtk.SeparatorMenuItem()
+        self.menu.append(separator)
+
+        off_item = Gtk.MenuItem(label="Turn Off Applet")
+        off_item.connect('activate', self.on_turn_off_applet_click)
+        self.menu.append(off_item)
+
+        self.menu.show_all()
+
+    def on_prev_page(self, widget):
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_menu_items()
+
+    def on_next_page(self, widget):
+        profiles = self.get_profiles()
+        if (self.current_page + 1) * PROFILES_PER_PAGE < len(profiles):
+            self.current_page += 1
+            self.update_menu_items()
+
     def on_profile_click(self, widget):
         profile = widget.get_label()
+        # Special handling for the specific profile
+        if profile.startswith('intel-best_power_efficiency_mode'):
+            profile = 'intel-best_power_efficiency_mode'
         try:
             cmd = ['tuned-adm', 'profile', profile]
             subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
-            self.show_info_dialog(f"Successfully switched to profile: {profile}")
+            logging.info(f"Successfully switched to profile: {profile}")
             self.update_active_profile()
         except subprocess.CalledProcessError as e:
-            self.show_error_dialog(f"Failed to switch profile: {e.output}")
+            logging.error(f"Failed to switch profile: {e.output}")
 
-    def on_turn_off_click(self, widget):
-        try:
-            cmd = ['tuned-adm', 'off']
-            subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
-            self.show_info_dialog("Successfully turned off TuneD")
-            self.update_active_profile()
-        except subprocess.CalledProcessError as e:
-            self.show_error_dialog(f"Failed to turn off TuneD: {e.output}")
+    def on_turn_off_applet_click(self, widget):
+        logging.info("Turning off the applet")
+        os._exit(0)  # Exit the applet
 
     def update_active_profile(self):
         try:
@@ -96,30 +131,6 @@ class TunedIndicator:
     def initial_update(self):
         self.update_active_profile()
         return False  # Ensures the timeout runs only once
-
-    def show_error_dialog(self, message):
-        dialog = Gtk.MessageDialog(
-            transient_for=None,
-            flags=0,
-            message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK,
-            text="Error",
-        )
-        dialog.format_secondary_text(message)
-        dialog.run()
-        dialog.destroy()
-
-    def show_info_dialog(self, message):
-        dialog = Gtk.MessageDialog(
-            transient_for=None,
-            flags=0,
-            message_type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.OK,
-            text="Information",
-        )
-        dialog.format_secondary_text(message)
-        dialog.run()
-        dialog.destroy()
 
     def handle_signal(self, signum, frame):
         if signum in (signal.SIGUSR1, signal.SIGUSR2):
