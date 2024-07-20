@@ -5,6 +5,7 @@ from gi.repository import Gtk, AppIndicator3, GLib
 import subprocess
 import logging
 import signal
+import os
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -79,8 +80,8 @@ class TunedIndicator:
         separator = Gtk.SeparatorMenuItem()
         self.menu.append(separator)
 
-        off_item = Gtk.MenuItem(label="Turn Off")
-        off_item.connect('activate', self.on_turn_off_click)
+        off_item = Gtk.MenuItem(label="Turn Off Applet")
+        off_item.connect('activate', self.on_turn_off_applet_click)
         self.menu.append(off_item)
 
         self.menu.show_all()
@@ -109,14 +110,9 @@ class TunedIndicator:
         except subprocess.CalledProcessError as e:
             logging.error(f"Failed to switch profile: {e.output}")
 
-    def on_turn_off_click(self, widget):
-        try:
-            cmd = ['tuned-adm', 'off']
-            subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
-            logging.info("Successfully turned off TuneD")
-            self.update_active_profile()
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to turn off TuneD: {e.output}")
+    def on_turn_off_applet_click(self, widget):
+        logging.info("Turning off the applet")
+        os._exit(0)  # Exit the applet
 
     def update_active_profile(self):
         try:
