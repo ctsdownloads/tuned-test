@@ -18,18 +18,20 @@ import logging
 import signal
 import os
 
+# Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-PROFILES_PER_PAGE = 10
+PROFILES_PER_PAGE = 10  # Number of profiles to display per page
 
 class TunedIndicator:
     def __init__(self):
+        # Initialize the AppIndicator
         self.indicator = AppIndicator3.Indicator.new(
             "tuned-indicator",
             "gnome-power-manager-symbolic",
             AppIndicator3.IndicatorCategory.SYSTEM_SERVICES)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
-        self.current_page = 0
+        self.current_page = 0  # Current page for pagination
         self.indicator.set_menu(self.create_menu())
 
         # Delay initial update to ensure system is ready
@@ -41,11 +43,13 @@ class TunedIndicator:
         signal.signal(signal.SIGUSR2, self.handle_signal)
 
     def create_menu(self):
+        """Create the indicator menu and populate it with profile items and controls."""
         self.menu = Gtk.Menu()
         self.update_menu_items()
         return self.menu
 
     def get_profiles(self):
+        """Retrieve the list of available profiles using the 'tuned-adm list' command."""
         try:
             output = subprocess.check_output(['tuned-adm', 'list'], stderr=subprocess.STDOUT, text=True)
             profiles = [line.strip('- ').split(' - ')[0].strip() for line in output.split('\n') if line.startswith('- ')]
@@ -55,6 +59,7 @@ class TunedIndicator:
             return []
 
     def update_menu_items(self):
+        """Update the indicator menu with the current set of profiles and pagination controls."""
         # Clear existing menu items
         for item in self.menu.get_children():
             self.menu.remove(item)
@@ -64,13 +69,14 @@ class TunedIndicator:
         end = min(start + PROFILES_PER_PAGE, len(profiles))
         current_profiles = profiles[start:end]
 
+        # Add profile items to the menu
         for profile in current_profiles:
             item = Gtk.MenuItem(label=profile)
             item.set_tooltip_text(profile)  # Ensure the full profile name is visible
             item.connect('activate', self.on_profile_click)
             self.menu.append(item)
 
-        # Add pagination controls
+        # Add pagination controls if needed
         if self.current_page > 0:
             prev_item = Gtk.MenuItem(label="Previous")
             prev_item.connect('activate', self.on_prev_page)
@@ -84,6 +90,7 @@ class TunedIndicator:
         separator = Gtk.SeparatorMenuItem()
         self.menu.append(separator)
 
+        # Add option to turn off the applet
         off_item = Gtk.MenuItem(label="Turn Off Applet")
         off_item.connect('activate', self.on_turn_off_applet_click)
         self.menu.append(off_item)
@@ -91,17 +98,20 @@ class TunedIndicator:
         self.menu.show_all()
 
     def on_prev_page(self, widget):
+        """Handle the 'Previous' button click to show the previous page of profiles."""
         if self.current_page > 0:
             self.current_page -= 1
             self.update_menu_items()
 
     def on_next_page(self, widget):
+        """Handle the 'Next' button click to show the next page of profiles."""
         profiles = self.get_profiles()
         if (self.current_page + 1) * PROFILES_PER_PAGE < len(profiles):
             self.current_page += 1
             self.update_menu_items()
 
     def on_profile_click(self, widget):
+        """Handle profile menu item click to switch to the selected profile."""
         profile = widget.get_label()
         # Special handling for the specific profile
         if profile.startswith('intel-best_power_efficiency_mode'):
@@ -114,10 +124,12 @@ class TunedIndicator:
             logging.error(f"Failed to switch profile: {e.output}")
 
     def on_turn_off_applet_click(self, widget):
+        """Handle the 'Turn Off Applet' menu item click to exit the applet."""
         logging.info("Turning off the applet")
         os._exit(0)  # Exit the applet
 
     def update_active_profile(self):
+        """Update the indicator label with the current active profile."""
         try:
             output = subprocess.check_output(['tuned-adm', 'active'], stderr=subprocess.STDOUT, text=True)
             if "No current active profile" in output:
@@ -131,16 +143,20 @@ class TunedIndicator:
         return True
 
     def initial_update(self):
+        """Perform the initial update of the active profile label."""
         self.update_active_profile()
         return False  # Ensures the timeout runs only once
 
     def handle_signal(self, signum, frame):
+        """Handle signals to update the active profile."""
         if signum in (signal.SIGUSR1, signal.SIGUSR2):
             self.update_active_profile()
 
 if __name__ == "__main__":
+    # Initialize and run the applet
     indicator = TunedIndicator()
     Gtk.main()
+
 
 
 
