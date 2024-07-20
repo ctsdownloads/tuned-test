@@ -6,3 +6,5 @@ https://www.intel.com/content/www/us/en/download/819707/epp-tuning-package-for-l
 Reboot
 
 sudo apt install curl -y && curl -sSL "https://raw.githubusercontent.com/ctsdownloads/tuned-test/main/installer.sh" | bash
+
+Log out, log back in.
