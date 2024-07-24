@@ -2,7 +2,8 @@
 
 # Install dependencies
 sudo apt update
-sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-appindicator3-0.1 tuned
+sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-appindicator3-0.1 tuned && sudo bash -c "systemctl stop power-profiles-daemon.service && systemctl disable power-profiles-daemon.service && systemctl mask power-profiles-daemon.service"
+
 
 # Create directory for the script
 mkdir -p ~/.local/bin
