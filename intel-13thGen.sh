@@ -1,14 +1,13 @@
 #!/bin/bash
 
 # Install dependencies
-sudo apt update
-sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-appindicator3-0.1 tuned
+sudo systemctl stop power-profiles-daemon && sudo systemctl disable power-profiles-daemon && sudo systemctl mask power-profiles-daemon && sudo apt update && sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-appindicator3-0.1 tuned
 
 # Create directory for the script
 mkdir -p ~/.local/bin
 
 # Create the Python script
-cat << EOF > ~/.local/bin/tuned_indicator.py
+cat << 'EOF' > ~/.local/bin/tuned_indicator.py
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')
@@ -23,7 +22,7 @@ import urllib.request
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 PROFILES_PER_PAGE = 10
-ICON_URL = "https://raw.githubusercontent.com/ctsdownloads/tuned-test/main/images/logo_white_targeted.png"
+ICON_URL = "https://raw.githubusercontent.com/FrameworkComputer/tuned-gui/main/images/logo_white_targeted.png"
 ICON_PATH = os.path.expanduser("~/.local/share/icons/tuned_logo.png")  # Path to save the downloaded icon
 
 class TunedIndicator:
@@ -98,12 +97,6 @@ class TunedIndicator:
             logging.error(f"Error getting active profile: {e.output}")
             return None
 
-    def normalize_profile_name(self, profile):
-        """Normalize profile name by removing trailing hyphen."""
-        if profile == 'intel-best_power_efficiency_mode- Intel epp 70 TuneD profile':
-            return 'intel-best_power_efficiency_mode'
-        return profile
-
     def update_menu_items(self):
         """Update the indicator menu with the current set of profiles and pagination controls."""
         # Clear existing menu items
@@ -122,8 +115,7 @@ class TunedIndicator:
             logging.debug(f"Adding profile to menu: {profile}")
             item = Gtk.CheckMenuItem(label=profile)
             item.set_size_request(300, -1)  # Set the minimum width of each menu item
-            normalized_profile = self.normalize_profile_name(profile)
-            if normalized_profile == active_profile:
+            if profile == active_profile:
                 item.set_active(True)
                 logging.debug(f"Set active profile: {profile}")
             item.set_tooltip_text(profile)  # Ensure the full profile name is visible
@@ -172,15 +164,12 @@ class TunedIndicator:
     def on_profile_click(self, widget, profile):
         """Handle profile menu item click to switch to the selected profile."""
         if widget.get_active():
-            # Use the correct profile name
-            normalized_profile = self.normalize_profile_name(profile)
-            logging.debug(f"Attempting to switch to profile: {normalized_profile} (original: {profile})")
+            logging.debug(f"Attempting to switch to profile: {profile}")
             try:
-                # Use the correct profile name
-                command = ['tuned-adm', 'profile', normalized_profile]
+                command = ['tuned-adm', 'profile', profile]
                 logging.debug(f"Running command: {command}")
                 subprocess.check_output(command, stderr=subprocess.STDOUT, text=True)
-                logging.info(f"Successfully switched to profile: {normalized_profile}")
+                logging.info(f"Successfully switched to profile: {profile}")
                 # Update the menu items to reflect the new active profile
                 self.update_menu_items()
             except subprocess.CalledProcessError as e:
@@ -203,11 +192,6 @@ if __name__ == "__main__":
         Gtk.main()
     except Exception as e:
         logging.error(f"Error initializing the TunedIndicator: {e}")
-
-
-
-
-
 EOF
 
 # Make the script executable
@@ -227,6 +211,13 @@ Name=TuneD Indicator
 Comment[en_US]=TuneD profile switcher indicator
 Comment=TuneD profile switcher indicator
 EOF
+
+# Change dynamic_tuning setting
+sudo sed -i 's/^dynamic_tuning *= *1/dynamic_tuning = 0/' /etc/tuned/tuned-main.conf
+
+# Enable and start the tuned service to make sure it runs automatically at boot
+sudo systemctl enable tuned
+sudo systemctl restart tuned
 
 echo "Installation complete. The TuneD Indicator will start automatically on your next login."
 echo "To start it now without logging out, run: python3 ~/.local/bin/tuned_indicator.py"
