@@ -1,9 +1,7 @@
 #!/bin/bash
 
 # Install dependencies
-sudo apt update
-sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-appindicator3-0.1 tuned && sudo bash -c "systemctl stop power-profiles-daemon.service && systemctl disable power-profiles-daemon.service && systemctl mask power-profiles-daemon.service"
-
+sudo systemctl stop power-profiles-daemon && sudo systemctl disable power-profiles-daemon && sudo systemctl mask power-profiles-daemon && sudo apt update && sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-appindicator3-0.1 tuned
 
 # Create directory for the script
 mkdir -p ~/.local/bin
@@ -24,7 +22,7 @@ import urllib.request
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 PROFILES_PER_PAGE = 10
-ICON_URL = "https://raw.githubusercontent.com/ctsdownloads/tuned-test/main/images/logo_white_targeted.png"
+ICON_URL = "https://raw.githubusercontent.com/FrameworkComputer/tuned-gui/main/images/logo_white_targeted.png"
 ICON_PATH = os.path.expanduser("~/.local/share/icons/tuned_logo.png")  # Path to save the downloaded icon
 
 class TunedIndicator:
