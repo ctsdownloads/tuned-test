@@ -220,4 +220,3 @@ sudo systemctl enable tuned
 sudo systemctl restart tuned
 
 echo "Installation complete. The TuneD Indicator will start automatically on your next login."
-echo "To start it now without logging out, run: python3 ~/.local/bin/tuned_indicator.py"
